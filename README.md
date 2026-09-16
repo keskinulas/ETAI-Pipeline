@@ -1,5 +1,12 @@
 # Baseline Predictive Pipeline -- ETAI
 
+**Name:** Ulaş Keskin  
+**Student number:** 20260612
+
+Week 2: 
+
+Logistic regression achieved better test accuracy than the decision tree (67.9% vs 62.7%) in the saved runs. The tree trained faster: about 0.015 s versus 0.206 s for logistic regression. I think logistic regression generalised better because its simpler, regularised model reduced overfitting: its train/test accuracy was 67.9%/67.9%, compared with the tree's 82.9%/62.7%. Logistic regression therefore performed better on this split, while the tree was faster; but since tree was overfitting it makes much more sence to go with logistic regression.
+
 This is the **starting point** for your semester project: a small but *complete* predictive pipeline -- every piece a real project needs (entry point, config, data loading, preprocessing, model, evaluation), just kept as simple as possible for now.
 
 The task: predict two-year recidivism using ProPublica's COMPAS

@@ -6,6 +6,8 @@ Printing to the terminal is fine while you're watching it happen, but it's gone 
 import os
 from datetime import datetime
 
+import yaml
+
 
 def save_run(results_dir: str, config: dict, report_text: str) -> str:
     """
@@ -20,7 +22,8 @@ def save_run(results_dir: str, config: dict, report_text: str) -> str:
 
     header = (
         f"Run: {timestamp}\n"
-        f"Model: {config['model']['type']}  params={config['model']['params']}\n"
+        "Configuration:\n"
+        f"{yaml.safe_dump(config, sort_keys=False)}\n"
         f"Test size: {config['split']['test_size']}  "
         f"random_state: {config['split']['random_state']}\n"
         + "=" * 60 + "\n\n"

@@ -7,6 +7,10 @@ Week 2:
 
 Logistic regression achieved better test accuracy than the decision tree (67.9% vs 62.7%) in the saved runs. The tree trained faster: about 0.015 s versus 0.206 s for logistic regression. I think logistic regression generalised better because its simpler, regularised model reduced overfitting: its train/test accuracy was 67.9%/67.9%, compared with the tree's 82.9%/62.7%. Logistic regression therefore performed better on this split, while the tree was faster; but since tree was overfitting it makes much more sence to go with logistic regression.
 
+Week 3:
+
+Cleaning removed duplicates and redundant columns, standardised categories, and marked invalid values as missing. Test accuracy decreased for both models: from 63.1% to 60.4% for the decision tree and from 67.9% to 65.5% for logistic regression. I still think logistic regression generalised better: its cleaned train/test accuracy was 67.8%/65.5%, compared with the tree's 79.9%/60.4%. However, cleaning changed which rows were included in the test set, so these decreases do not necessarily mean cleaning made the models worse.
+
 This is the **starting point** for your semester project: a small but *complete* predictive pipeline -- every piece a real project needs (entry point, config, data loading, preprocessing, model, evaluation), just kept as simple as possible for now.
 
 The task: predict two-year recidivism using ProPublica's COMPAS
@@ -43,6 +47,7 @@ This table is updated after each practical class, so you can always see what cha
 | Week | Practical class focus | Added to the pipeline |
 |------|------------------------|------------------------|
 | 2 | Introduction & baseline pipeline | Initial version: project structure, a single naive train/test split (no cross-validation), minimal preprocessing (drop rows with missing values, one-hot encode categoricals), logistic regression baseline, a first (deliberately simple) fairness check comparing our model's and COMPAS's own false-positive rate by race, train-vs-test accuracy reporting (to start spotting overfitting), and each run's full report saved automatically to `results/` |
+| 3 | Data cleaning | Configurable placeholder handling, numeric conversion, validity rules, category standardisation, duplicate removal, and redundant-column removal before preprocessing; before/after results discussed above. |
 
 ## Environment setup
 
@@ -102,7 +107,7 @@ folder, on any OS:
 python main.py
 ```
 
-This loads `config.yaml`, loads and preprocesses the data, trains the model, and prints:
+This loads `config.yaml`, loads, cleans, and preprocesses the data, trains the model, and prints:
 - **train accuracy and test accuracy, side by side.** Comparing the two is how you catch overfitting: if the model looks much better on the data it was trained on than on data it's never seen, it has memorised rather than learned something that generalises. 
 - a classification report on the test set
 - a false-positive-rate-by-race comparison between our model and
@@ -118,3 +123,13 @@ You're free to improve on this structure or restructure it entirely -- what matt
 ## Dataset
 
 See `data/README.md`.
+
+### Cleaning configuration
+
+`diagnostics` in `config.yaml` controls placeholder tokens, numeric conversion,
+validity bounds, category mappings, ID deduplication, and redundant columns.
+Cleaning copies the input and runs before preprocessing. Invalid values become
+missing; preprocessing still drops rows with missing values (no imputation yet).
+Saved reports include the full configuration so the cleaning settings are recorded.
+
+Run the pipeline with `python main.py` and review the saved report in `results/`, as before.

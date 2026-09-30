@@ -24,8 +24,11 @@ def save_run(results_dir: str, config: dict, report_text: str) -> str:
         f"Run: {timestamp}\n"
         "Configuration:\n"
         f"{yaml.safe_dump(config, sort_keys=False)}\n"
-        f"Test size: {config['split']['test_size']}  "
-        f"random_state: {config['split']['random_state']}\n"
+        f"Locked test size: {config['test_set']['size']}  "
+        f"random_state: {config['test_set']['random_state']}\n"
+        f"CV: {config['cv']['n_splits']} stratified folds; "
+        f"shuffle: {config['cv']['shuffle']}; random_state: {config['cv']['random_state']}; "
+        f"scoring: {config['cv']['scoring']}\n"
         + "=" * 60 + "\n\n"
     )
 

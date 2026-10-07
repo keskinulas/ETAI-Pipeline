@@ -19,6 +19,10 @@ This week, I replaced dropping rows with missing values with median imputation f
 
 Before cross-validation, the Week 4 logistic regression pipeline reported 65.8% test accuracy from one split (Week 3: 65.5%). After adding stratified 5-fold CV around the whole Pipeline, development-set validation accuracy was **67.2% ± 1.3 percentage points** (mean ± sample standard deviation), with a mean train–validation gap of **0.3 percentage points**, compared with the previous 1.8-point train–test gap. I trust CV more for comparing recipes because every development row is evaluated out of fold and preprocessing is relearned inside each fold. This is a change in evaluation, not proof of better predictions: CV uses different evaluation rows and training subsets, while the 1,443-row test set stays excluded from CV and was not rescored.
 
+Week 5:
+
+This week, I added hyperparameter tuning with Optuna for logistic regression's `C` and the decision tree's `max_depth`, `min_samples_leaf`, and `criterion`. Comparing baseline CV with tuned nested CV, logistic regression accuracy barely changed (67.2% to 67.3%), while the decision tree improved from 61.1% to 67.5%. The selected tree settings were `max_depth=9`, `min_samples_leaf=101`, and `criterion=gini`. I think the tree improved much more because it was overfitting before, and tuning reduced this: its mean train–validation gap fell from 8.4 to 0.9 percentage points. The tuned tree scored slightly higher than logistic regression, but the difference is too small relative to fold variability to call it a clear winner. The test set was not used.
+
 This is the **starting point** for your semester project: a small but *complete* predictive pipeline -- every piece a real project needs (entry point, config, data loading, preprocessing, model, evaluation), just kept as simple as possible for now.
 
 The task: predict two-year recidivism using ProPublica's COMPAS
@@ -57,6 +61,7 @@ This table is updated after each practical class, so you can always see what cha
 | 2 | Introduction & baseline pipeline | Initial version: project structure, a single naive train/test split (no cross-validation), minimal preprocessing (drop rows with missing values, one-hot encode categoricals), logistic regression baseline, a first (deliberately simple) fairness check comparing our model's and COMPAS's own false-positive rate by race, train-vs-test accuracy reporting (to start spotting overfitting), and each run's full report saved automatically to `results/` |
 | 3 | Data cleaning | Configurable placeholder handling, numeric conversion, validity rules, category standardisation, duplicate removal, and redundant-column removal before preprocessing; before/after results discussed above. |
 | 4 | Preprocessing recipe | Row-preserving cleaning; training-only deduplication; locked dev/test split; MNAR flags; train-fitted imputation, encoding and scaling in one model Pipeline; dummy and random forest models; stratified 5-fold CV with out-of-fold classification and fairness reports. |
+| 5 | Hyperparameter tuning | Optuna search for logistic regression and decision tree, nested CV for evaluation, nested out-of-fold reports, and final tuning/refit on all development rows. |
 
 ## Environment setup
 
@@ -120,8 +125,14 @@ This loads `config.yaml`, cleans the data, locks away 20% as the test set, and
 cross-validates the whole preprocessing/model Pipeline on the development set. It prints:
 
 - Per-fold training and validation accuracy, their gaps, and mean ± sample standard deviation.
+- When tuning is enabled: nested CV scores, the best hyperparameters and top trials,
+  and an optimism check comparing inner and outer scores.
 - A classification report using out-of-fold predictions for all development rows.
 - A false-positive-rate-by-race comparison with COMPAS using those same predictions.
+
+With tuning enabled, classification and fairness use the nested outer-fold
+predictions. The final recipe is selected by a separate search on all development
+rows before refitting.
 
 The recipe is then refitted on all development rows. The locked test set is not
 scored during this workflow. Reports and configuration are saved to timestamped

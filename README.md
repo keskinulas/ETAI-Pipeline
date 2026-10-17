@@ -23,6 +23,25 @@ Week 5:
 
 This week, I added hyperparameter tuning with Optuna for logistic regression's `C` and the decision tree's `max_depth`, `min_samples_leaf`, and `criterion`. Comparing baseline CV with tuned nested CV, logistic regression accuracy barely changed (67.2% to 67.3%), while the decision tree improved from 61.1% to 67.5%. The selected tree settings were `max_depth=9`, `min_samples_leaf=101`, and `criterion=gini`. I think the tree improved much more because it was overfitting before, and tuning reduced this: its mean train–validation gap fell from 8.4 to 0.9 percentage points. The tuned tree scored slightly higher than logistic regression, but the difference is too small relative to fold variability to call it a clear winner. The test set was not used.
 
+Week 6:
+
+### Ensembles
+
+*Accuracy on the same five stratified development folds; mean ± sample std; gap = train − validation; tuning: 30 Optuna trials, five inner folds*
+
+| Model | Default: CV mean ± std (gap) | Tuned: nested CV mean ± std (gap) | Tuning score (best trial) | Chosen hyperparameters |
+|---|---|---|---|---|
+| Logistic regression | 0.672 ± 0.013 (+0.003) | 0.673 ± 0.016 (+0.004) | 0.678 | `C=0.071542` |
+| Decision tree | 0.611 ± 0.015 (+0.084) | 0.675 ± 0.020 (+0.009) | 0.680 | `max_depth=9`, `min_samples_leaf=101`, `criterion=gini` |
+| Random forest | 0.652 ± 0.019 (+0.081) | 0.678 ± 0.014 (+0.011) | 0.683 | `max_depth=22`, `min_samples_leaf=42`, `max_features=0.5`; 200 trees fixed |
+| Oblique random forest | 0.650 ± 0.009 (+0.113) | 0.681 ± 0.013 (+0.009) | 0.683 | Tree: `max_depth=4`, `min_samples_leaf=2`; projection: `n_components=10`; 200 trees fixed |
+| AdaBoost | 0.676 ± 0.012 (+0.006) | 0.682 ± 0.016 (+0.005) | 0.685 | Base tree: `max_depth=4`; `n_estimators=226`, `learning_rate=0.177132` |
+
+I would choose tuned AdaBoost provisionally because it has the highest mean accuracy, but its 0.001 lead over the oblique forest is smaller than the fold standard deviations, so there is no clear winner.
+Tuning reduces the forests' train–validation gaps from 0.081/0.113 to 0.011/0.009, showing much less overfitting.
+The random forest's large leaves and the oblique forest's shallow trees limit complexity, while AdaBoost uses depth-4 learners with a small learning rate over 226 rounds.
+I would report AdaBoost's nested CV accuracy of **0.682 ± 0.016** as the performance estimate; the locked test set remains unevaluated.
+
 This is the **starting point** for your semester project: a small but *complete* predictive pipeline -- every piece a real project needs (entry point, config, data loading, preprocessing, model, evaluation), just kept as simple as possible for now.
 
 The task: predict two-year recidivism using ProPublica's COMPAS
@@ -62,6 +81,7 @@ This table is updated after each practical class, so you can always see what cha
 | 3 | Data cleaning | Configurable placeholder handling, numeric conversion, validity rules, category standardisation, duplicate removal, and redundant-column removal before preprocessing; before/after results discussed above. |
 | 4 | Preprocessing recipe | Row-preserving cleaning; training-only deduplication; locked dev/test split; MNAR flags; train-fitted imputation, encoding and scaling in one model Pipeline; dummy and random forest models; stratified 5-fold CV with out-of-fold classification and fairness reports. |
 | 5 | Hyperparameter tuning | Optuna search for logistic regression and decision tree, nested CV for evaluation, nested out-of-fold reports, and final tuning/refit on all development rows. |
+| 6 | Ensembles | Added oblique random forest and AdaBoost; ensemble tuning and nested CV comparison across five models. |
 
 ## Environment setup
 

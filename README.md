@@ -42,6 +42,32 @@ Tuning reduces the forests' train–validation gaps from 0.081/0.113 to 0.011/0.
 The random forest's large leaves and the oblique forest's shallow trees limit complexity, while AdaBoost uses depth-4 learners with a small learning rate over 226 rounds.
 I would report AdaBoost's nested CV accuracy of **0.682 ± 0.016** as the performance estimate; the locked test set remains unevaluated.
 
+Week 7:
+
+This week, I added gradient boosting, HistGradientBoosting and a Naive Bayes baseline. I also replaced accuracy-only evaluation with eight metrics, kept out-of-fold probabilities for the classification and fairness reports, and added a confusion matrix and a persistent scoreboard.
+
+### Scoreboard
+
+*ROC-AUC on the same five stratified development folds; mean ± sample std; tuning: 30 Optuna trials, five inner folds; target encoding, robust scaling and seed 42. The dummy has no tuning search space.*
+
+| Model | Default CV ROC-AUC | Tuned nested CV ROC-AUC | Dummy floor |
+|---|---|---|---|
+| Dummy | 0.500 ± 0.000 | — | 0.500 |
+| Logistic regression | 0.718 ± 0.014 | 0.718 ± 0.014 | 0.500 |
+| Naive Bayes | 0.685 ± 0.011 | 0.715 ± 0.011 | 0.500 |
+| Decision tree | 0.612 ± 0.017 | 0.716 ± 0.015 | 0.500 |
+| Random forest | 0.684 ± 0.020 | 0.727 ± 0.016 | 0.500 |
+| Oblique random forest | 0.686 ± 0.018 | 0.727 ± 0.015 | 0.500 |
+| AdaBoost | 0.723 ± 0.016 | 0.726 ± 0.014 | 0.500 |
+| Gradient boosting | 0.727 ± 0.015 | 0.728 ± 0.015 | 0.500 |
+| HistGradientBoosting | 0.717 ± 0.020 | 0.728 ± 0.015 | 0.500 |
+
+Tuning improved the decision tree most, from 0.612 to 0.716 ROC-AUC, while logistic regression stayed around 0.718. Both boosters reached **0.728 ± 0.015**, close to the forests at 0.727 and AdaBoost at 0.726; these small differences relative to fold variability do not establish a clear winner. I would provisionally keep gradient boosting and report its nested CV ROC-AUC of **0.728 ± 0.015**. These ROC-AUC scores are not directly comparable with Week 6's accuracy scores, and the 1,443-row test set remains unevaluated.
+
+I chose ROC-AUC because it measures how well the model ranks reoffenders above non-reoffenders across decision thresholds. I also report the other seven metrics and group-level false-positive rates because ranking performance alone does not describe errors at the chosen threshold or fairness.
+
+The full runs are saved in `results/runs.csv`, with this week's nine-model comparison in `results/week7/scoreboard.csv`.
+
 This is the **starting point** for your semester project: a small but *complete* predictive pipeline -- every piece a real project needs (entry point, config, data loading, preprocessing, model, evaluation), just kept as simple as possible for now.
 
 The task: predict two-year recidivism using ProPublica's COMPAS
@@ -65,7 +91,7 @@ go on.
 │   ├── model.py             # model construction
 │   ├── evaluate.py         # accuracy metrics + fairness check
 │   └── results.py          # saves each run's report to disk
-├── results/                # created automatically -- one file per run (not tracked in git)
+├── results/                # scoreboard CSVs + generated run reports
 └── data/
     ├── compas_two_year_recidivism.csv
     └── README.md            # problem description + full data dictionary
@@ -82,6 +108,7 @@ This table is updated after each practical class, so you can always see what cha
 | 4 | Preprocessing recipe | Row-preserving cleaning; training-only deduplication; locked dev/test split; MNAR flags; train-fitted imputation, encoding and scaling in one model Pipeline; dummy and random forest models; stratified 5-fold CV with out-of-fold classification and fairness reports. |
 | 5 | Hyperparameter tuning | Optuna search for logistic regression and decision tree, nested CV for evaluation, nested out-of-fold reports, and final tuning/refit on all development rows. |
 | 6 | Ensembles | Added oblique random forest and AdaBoost; ensemble tuning and nested CV comparison across five models. |
+| 7 | Boosting and evaluation metrics | Added gradient boosting, HistGradientBoosting and Naive Bayes; eight metrics, ROC-AUC selection, out-of-fold probabilities and confusion matrix, plus a persistent scoreboard with a dummy floor and nested tuning results. |
 
 ## Environment setup
 
@@ -144,11 +171,12 @@ python main.py
 This loads `config.yaml`, cleans the data, locks away 20% as the test set, and
 cross-validates the whole preprocessing/model Pipeline on the development set. It prints:
 
-- Per-fold training and validation accuracy, their gaps, and mean ± sample standard deviation.
+- Per-fold training and validation scores for the selection metric, their gaps, and mean ± sample standard deviation for all eight metrics.
 - When tuning is enabled: nested CV scores, the best hyperparameters and top trials,
   and an optimism check comparing inner and outer scores.
 - A classification report using out-of-fold predictions for all development rows.
 - A false-positive-rate-by-race comparison with COMPAS using those same predictions.
+- A confusion matrix at probability threshold 0.5 and a scoreboard in `results/runs.csv`, including the dummy floor and untuned score for each run.
 
 With tuning enabled, classification and fairness use the nested outer-fold
 predictions. The final recipe is selected by a separate search on all development
@@ -157,9 +185,9 @@ rows before refitting.
 The recipe is then refitted on all development rows. The locked test set is not
 scored during this workflow. Reports and configuration are saved to timestamped
 files in `results/`; compare candidates using the same development folds.
-`results/` is created automatically the first time you run the
-pipeline, and isn't tracked in git (see `.gitignore`) since it's
-generated output, not source.
+`results/` is created automatically the first time you run the pipeline.
+The scoreboard CSVs are included in version control; generated run reports
+remain ignored (see `.gitignore`).
 
 You're free to improve on this structure or restructure it entirely -- what matters is that your project stays runnable end-to-end with a single command, and that each piece (data, preprocessing, model, evaluation) stays easy to find and change independently.
 
@@ -191,8 +219,8 @@ Available encoders: `onehot`, `ordinal`, `count`, `target`; scalers: `none`,
 comparisons rather than treated as high risk.
 
 `cv` configures stratified cross-validation (`n_splits`, `shuffle`, `random_state`,
-`scoring`, `n_jobs`). Each fold fits its own preprocessing and model; out-of-fold
-predictions come from those same fits. `main.py` then refits on all development
+`metrics`, `selection_metric`, `n_jobs`). Each fold fits its own preprocessing and model; out-of-fold
+probabilities come from those same fits. `main.py` then refits on all development
 rows, leaving the locked test set for a later final assessment.
 Use `model.params: {strategy: "most_frequent"}` for the dummy baseline, or
 `{random_state: 42}` as initial parameters for a tree/random forest.

@@ -41,7 +41,8 @@ cv:
   n_splits: 5
   shuffle: true
   random_state: 42
-  scoring: "accuracy"
+  metrics: ["accuracy", "balanced_accuracy", "precision", "recall", "f1", "fbeta_2", "roc_auc", "average_precision"]
+  selection_metric: "roc_auc"
   n_jobs: 1
 
 preprocessing:
@@ -56,20 +57,21 @@ preprocessing:
   random_state: 42
 
 model:
-  type: "random_forest" # dummy | logistic_regression | decision_tree | random_forest | oblique_random_forest | adaboost
+  type: "gradient_boosting" # dummy | logistic_regression | naive_bayes | decision_tree | random_forest | oblique_random_forest | adaboost | gradient_boosting | hist_gradient_boosting
   params:
-    n_estimators: 200
     random_state: 42
-    n_jobs: -1
   # When switching model.type, replace params with the matching example:
   # decision_tree:         {random_state: 42}
   # logistic_regression:   {max_iter: 2000}
+  # naive_bayes:           {}
+  # random_forest:         {n_estimators: 200, random_state: 42, n_jobs: -1}
+  # hist_gradient_boosting: {random_state: 42}
   # oblique_random_forest: {n_estimators: 200, n_components: 10, random_state: 42, n_jobs: -1}
   # adaboost:              {max_depth: 1, n_estimators: 200, learning_rate: 1.0, random_state: 42}
 
 
 tuning:
-  enabled: true
+  enabled: false
   n_trials: 30 # use 5 while testing; restore 30 for the final comparison
   n_splits: 5
   random_state: 42
@@ -92,6 +94,21 @@ tuning:
       model__estimator__max_depth: {type: int, low: 1, high: 8}
       model__n_estimators: {type: int, low: 25, high: 400, log: true}
       model__learning_rate: {type: float, low: 0.01, high: 1.0, log: true}
+    gradient_boosting:
+      model__n_estimators: {type: int, low: 25, high: 500, log: true}
+      model__learning_rate: {type: float, low: 0.01, high: 0.5, log: true}
+      model__max_depth: {type: int, low: 1, high: 6}
+      model__min_samples_leaf: {type: int, low: 1, high: 200, log: true}
+      model__subsample: {type: float, low: 0.5, high: 1.0}
+    hist_gradient_boosting:
+      model__max_iter: {type: int, low: 25, high: 500, log: true}
+      model__learning_rate: {type: float, low: 0.01, high: 0.5, log: true}
+      model__max_leaf_nodes: {type: int, low: 2, high: 63, log: true}
+      model__min_samples_leaf: {type: int, low: 5, high: 200, log: true}
+      model__l2_regularization: {type: float, low: 0.000001, high: 10.0, log: true}
+    naive_bayes:
+      model__var_smoothing: {type: float, low: 0.000000001, high: 1.0, log: true}
 
 output:
+  scoreboard: "results/runs.csv"
   results_dir: "results"   # each run's full report is saved here as a timestamped .txt file

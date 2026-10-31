@@ -4,4 +4,8 @@ __pycache__/
 .DS_Store
 .ipynb_checkpoints/
 *.egg-info/
-results/
+results/*
+!results/runs.csv
+!results/week7/
+results/week7/*
+!results/week7/scoreboard.csv

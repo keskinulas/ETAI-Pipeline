@@ -4,6 +4,7 @@ import pandas as pd
 import optuna
 from sklearn.base import clone
 from sklearn.model_selection import cross_val_score
+from src.model import NoFeaturesSelectedError
 
 
 def tune_pipeline(pipeline, X, y, cv, scorer, search_space: dict, n_trials: int,
@@ -30,7 +31,10 @@ def tune_pipeline(pipeline, X, y, cv, scorer, search_space: dict, n_trials: int,
                 raise ValueError(f"Unknown search-space type for {name}: {spec['type']}. "
                                  "Options: int, float, categorical")
         candidate = clone(pipeline).set_params(**params)
-        scores = cross_val_score(candidate, X, y, cv=cv, scoring=scorer, n_jobs=n_jobs, error_score="raise")
+        try:
+            scores = cross_val_score(candidate, X, y, cv=cv, scoring=scorer, n_jobs=n_jobs, error_score="raise")
+        except NoFeaturesSelectedError as exc:
+            raise optuna.TrialPruned(str(exc)) from exc
         trial.set_user_attr("std", float(scores.std(ddof=1)))
         return scores.mean()
 

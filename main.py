@@ -11,6 +11,7 @@ This orchestrates the full (deliberately simple) pipeline:
     -> out-of-fold evaluation -> final development refit -> save results
 """
 from datetime import datetime
+from tempfile import TemporaryDirectory
 
 import yaml
 from sklearn.model_selection import StratifiedKFold
@@ -35,6 +36,11 @@ def load_config(path: str = "config.yaml") -> dict:
 
 def main():
     config = load_config()
+    with TemporaryDirectory(prefix="pipeline_cache_") as cache_dir:
+        run_pipeline(config, cache_dir)
+
+
+def run_pipeline(config, cache_dir):
     run = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     model_type = config["model"]["type"]
 
@@ -52,7 +58,8 @@ def main():
         random_state=config["test_set"]["random_state"],
     )
 
-    pipe = build_pipeline(prep_cfg, config["model"])
+    selection_cfg = config.get("feature_selection", {})
+    pipe = build_pipeline(prep_cfg, config["model"], selection_cfg, memory=cache_dir)
     cv_cfg = config["cv"]
     cv = StratifiedKFold(
         n_splits=cv_cfg["n_splits"],
@@ -88,7 +95,9 @@ def main():
         if model_type not in search_spaces:
             raise ValueError(f"No tuning search space configured for {model_type!r}. "
                              "Add tuning.search_spaces for this model or disable tuning.")
-        search_space = search_spaces[model_type]
+        search_space = dict(search_spaces[model_type])
+        if selection_cfg.get("enabled", False):
+            search_space.update(selection_cfg.get("search_space", {}))
         tuning_seed = tuning_cfg["random_state"]
         inner_cv = StratifiedKFold(n_splits=tuning_cfg["n_splits"], shuffle=True,
                                   random_state=tuning_seed)
@@ -118,6 +127,14 @@ def main():
     # CV evaluates fresh fold models; refit the recipe on all development rows for use.
     # The locked test set is neither scored nor used for model selection here.
     pipe.fit(X_dev, y_dev)
+    selection_setting = "disabled"
+    if "select" in pipe.named_steps:
+        selector = pipe["select"]
+        kept = pipe["prep"].get_feature_names_out()[selector.get_support()]
+        selection_setting = f"vote(min_votes={selector.min_votes})"
+        features_text = f"Features kept: {len(kept)}/{selector.n_features_in_}: " + ", ".join(kept)
+        print(features_text)
+        report += "\n" + features_text + "\n"
     final_summary = (
         f"Final model refit on {len(X_dev)} development rows. "
         f"Locked test set: {len(X_test)} rows (not evaluated)."
@@ -128,6 +145,7 @@ def main():
     results_dir = config.get("output", {}).get("results_dir", "results")
     row = {
         "run": run, "data": config["data"]["path"], "model": model_type,
+        "feature_selection": selection_setting,
         "tuned": tuning_enabled, "encoder": prep_cfg["encoder"], "scaler": prep_cfg["scaler"],
         "params": str(config["model"].get("params")),
         "tuned_params": str(study.best_params) if tuning_enabled else "",
@@ -138,13 +156,14 @@ def main():
     runs = save_scores(config.get("output", {}).get("scoreboard", "results/runs.csv"), row)
     same = runs[(runs["data"] == row["data"]) & (runs["metric"] == selection_metric)]
     board = (same.sort_values("mean", ascending=False)
-             [["run", "model", "tuned", "encoder", "scaler", "mean", "std", "untuned", "floor"]]
+             [["run", "model", "tuned", "feature_selection", "encoder", "scaler", "mean", "std", "untuned", "floor"]]
              .rename(columns={"mean": selection_metric})
              .to_string(index=False, float_format=lambda v: f"{v:.3f}"))
     print(f"\nScoreboard (same data and selection metric; best first)\n{board}")
     report += f"\nScoreboard:\n{board}\n"
     path = save_run(results_dir, run, config, report)
     print(f"Full results saved to {path}")
+    return row
 
 
 if __name__ == "__main__":

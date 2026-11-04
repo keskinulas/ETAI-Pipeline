@@ -1,0 +1,10 @@
+{
+  "mean_diff": -0.003455284505512446,
+  "wins": "1/5",
+  "t": -1.275793501805133,
+  "p_value": 0.2710788046668782,
+  "run_with_selection": "20261104_115154_283897",
+  "run_without_selection": "20261104_115432_702735",
+  "metric": "roc_auc",
+  "difference": "with - without selection"
+}

@@ -68,6 +68,14 @@ I chose ROC-AUC because it measures how well the model ranks reoffenders above n
 
 The full runs are saved in `results/runs.csv`, with this week's nine-model comparison in `results/week7/scoreboard.csv`.
 
+Week 8:
+
+With 30 Optuna trials per search and the same five outer/five inner development folds, tuned XGBoost achieved **0.7256 ± 0.0126 ROC-AUC with selection** and **0.7290 ± 0.0136 without selection** (mean ± sample standard deviation).
+The corrected paired test gave a mean difference of **−0.00346** (with minus without selection), **t = −1.276, p = 0.271**, with selection scoring higher in one of five folds; this does not establish a difference or prove equivalence.
+Final tuning chose `min_votes=1` and kept only **age and priors_count**, reducing the inputs from 10 transformed features to 2.
+The smaller model has a slightly lower mean score, but I would provisionally keep selection on for simpler explanations while acknowledging that these five folds cannot rule out a small performance loss.
+Both tuned runs are recorded in `results/runs.csv` and `results/week8/scoreboard.csv`, the test is saved in `results/week8/comparison.json`, and the 1,443-row test set remains unevaluated.
+
 This is the **starting point** for your semester project: a small but *complete* predictive pipeline -- every piece a real project needs (entry point, config, data loading, preprocessing, model, evaluation), just kept as simple as possible for now.
 
 The task: predict two-year recidivism using ProPublica's COMPAS
@@ -109,12 +117,15 @@ This table is updated after each practical class, so you can always see what cha
 | 5 | Hyperparameter tuning | Optuna search for logistic regression and decision tree, nested CV for evaluation, nested out-of-fold reports, and final tuning/refit on all development rows. |
 | 6 | Ensembles | Added oblique random forest and AdaBoost; ensemble tuning and nested CV comparison across five models. |
 | 7 | Boosting and evaluation metrics | Added gradient boosting, HistGradientBoosting and Naive Bayes; eight metrics, ROC-AUC selection, out-of-fold probabilities and confusion matrix, plus a persistent scoreboard with a dummy floor and nested tuning results. |
+| 8 | XGBoost and feature selection | Added XGBoost and VoteSelector inside the Pipeline; joint nested tuning of model parameters and vote threshold, temporary caching, kept-feature reporting, and a corrected paired comparison of tuned XGBoost with/without selection. |
 
 ## Environment setup
 
 You only need to do this once per machine.
 
 ### macOS / Linux
+On macOS, install XGBoost's OpenMP runtime with `brew install libomp` before running the pipeline.
+
 ```bash
 python3 -m venv venv                 # creates an isolated Python environment in a folder called "venv"
 source venv/bin/activate             # activates it -- packages install here, not system-wide, and stay out of your other projects
@@ -226,3 +237,34 @@ Use `model.params: {strategy: "most_frequent"}` for the dummy baseline, or
 `{random_state: 42}` as initial parameters for a tree/random forest.
 
 Run regression checks with `python -m unittest discover -s tests`.
+
+### Feature selection configuration
+
+`feature_selection.enabled` adds a `VoteSelector` between preprocessing and the
+model. Random forest and gradient boosting vote for features with above-average
+importance; L1 logistic regression votes for nonzero coefficients. `min_votes`
+(1–3, default 2) controls how many votes keep a feature. Selection is fitted only
+on each fold's training rows. When tuning is enabled, `select__min_votes` joins
+the model search space inside nested CV.
+
+Each run uses a temporary cache for preprocessing and selection, automatically
+removed when the run finishes. The final kept features are printed and saved in
+the report; the scoreboard records whether selection was enabled and its final
+`min_votes` value.
+
+### Model evaluation
+
+Run `python compare_feature_selection.py` to compare tuned XGBoost with and
+without feature selection. Both runs use the configured trial budget (30), the
+same five outer folds, five inner folds and seed 42. The script leaves
+`config.yaml` unchanged and excludes the locked test set. Each run is added to
+`results/runs.csv`; comparison artifacts go to `results/week8/`.
+
+`src.evaluate.corrected_paired_test(a, b, test_train_ratio=1/4)` compares paired
+outer-fold ROC-AUC scores, with positive differences favouring `a`. It uses the
+course notebook's two-sided Nadeau–Bengio corrected t-test: the variance of the
+paired differences is multiplied by `1/k + n_validation/n_training`, with
+`k - 1` degrees of freedom. This accounts approximately for overlapping training
+sets ([original paper](https://papers.nips.cc/paper/1661-inference-for-the-generalization-error.pdf)).
+A p-value above 0.05 does not establish equal performance; five folds give limited
+evidence about small differences.

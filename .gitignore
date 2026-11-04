@@ -9,3 +9,7 @@ results/*
 !results/week7/
 results/week7/*
 !results/week7/scoreboard.csv
+!results/week8/
+results/week8/*
+!results/week8/scoreboard.csv
+!results/week8/comparison.json

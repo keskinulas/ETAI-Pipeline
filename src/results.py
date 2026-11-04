@@ -12,6 +12,8 @@ def save_scores(path: str, row: dict) -> pd.DataFrame:
     """Append a run to the scoreboard CSV and return all recorded runs."""
     runs = pd.read_csv(path, dtype={"run": str}) if os.path.exists(path) else pd.DataFrame()
     runs = pd.concat([runs, pd.DataFrame([row])], ignore_index=True)
+    if "feature_selection" in runs:
+        runs["feature_selection"] = runs["feature_selection"].fillna("disabled")
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     runs.to_csv(path, index=False)
     return runs
@@ -29,6 +31,7 @@ def save_run(results_dir: str, run: str, config: dict, report_text: str) -> str:
 
     header = (
         f"Run: {run}\n"
+        f"Feature selection: {config.get('feature_selection', {'enabled': False})}\n"
         "Configuration:\n"
         f"{yaml.safe_dump(config, sort_keys=False)}\n"
         f"Locked test size: {config['test_set']['size']}  "
